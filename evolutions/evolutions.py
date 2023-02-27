@@ -61,12 +61,14 @@ def read_textfile(fname):
 
 # Return DBConn wrapping DB-API2 conn (https://python.org/dev/peps/pep-0249/)
 def get_connection(url, user, pw):
-    url_re = re.compile(r'([^:]+)://([^:]+)(:([0-9]+))?/(.+)')
+    url_re = re.compile(r'([^:]+)://([^:]+)(:([0-9]+))?/([^\?]+)(\?(.*))')
     file_re = re.compile(r'([^:]+):(/.+)')
     match = url_re.match(url)
+    qs = None
     if match:
-        db_type, host, port, db_name = (match.group(1), match.group(2),
-                                        match.group(4), match.group(5))
+        db_type, host, port, db_name, qs = (match.group(1), match.group(2),
+                                            match.group(4), match.group(5),
+                                            match.group(7))
     else:
         match = file_re.match(url)
         if match:
@@ -83,10 +85,14 @@ def get_connection(url, user, pw):
         cmd = ['mysql', '-u', user, '--password='+pw, db_name]
         param = '%s'
     elif db_type == 'postgresql':
-        import psycopg2, os
+        import psycopg2, os, urllib.parse
+        # Parse the query string into name/value pairs:
+        qsPairs = urllib.parse.parse_qsl(qs, keep_blank_values=False, strict_parsing=False)
         port = port or '5432'; # String because that's what match would have yielded
+        # If qsPairs contains an invalid option then the connect() will throw a meaningful error:
         conn = psycopg2.connect(user=user, password=pw,
-                                host=host, port=port, database=db_name)
+                                host=host, port=port, database=db_name,
+                                *list(map(lambda p: p[0] + '=' + p[1], qsPairs)))
         conn.set_session(autocommit=False)
         os.environ['PGPASSWORD'] = pw # Password via env ins
         cmd = ['psql', '-h', host or 'localhost', '-p', port, '-U', user, db_name]
