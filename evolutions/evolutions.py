@@ -86,8 +86,10 @@ def get_connection(url, user, pw):
         param = '%s'
     elif db_type == 'postgresql':
         import psycopg2, os, urllib.parse
+        # Parse the query string into name/value pairs:
         qsPairs = urllib.parse.parse_qsl(qs, keep_blank_values=False, strict_parsing=False)
         port = port or '5432'; # String because that's what match would have yielded
+        # If qsPairs contains an invalid option then the connect() will throw a meaningful error:
         conn = psycopg2.connect(user=user, password=pw,
                                 host=host, port=port, database=db_name,
                                 *list(map(lambda p: p[0] + '=' + p[1], qsPairs)))
